@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<title>{% block title %}{% endblock %}</title>
+
+{% block content %}
+
+    <style>
+        #buttons {
+            margin:1 0px;
+        }
+        
+        .set-time {
+            display: inline-block;
+            height: 40px;
+            min-width: 80px;
+        }
+        
+        #chart-container {
+            width: 100%;
+            height: 75vh;
+        }
+    </style>
+
+    <h3 id="temp"></h3>
+    <h3 id="humid"></h3>
+    <div id="chart-container">
+        <canvas id="chart"></canvas>
+    </div>
+    <div id="buttons">
+        <button class="set-time" data-hours="24">24 Hours</button>
+        <button class="set-time" data-hours="48">48 Hours</button>
+        <button class="set-time" data-hours="168">1 Week</button>
+        <button class="set-time" data-hours="731">1 Month</button>
+        <button class="set-time" data-hours="-1">All</button>
+    </div>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.9.4/Chart.bundle.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.1/moment.min.js"></script>
+    <script type=text/javascript>
+        const ctx = document.getElementById('chart').getContext('2d');
+        var earliestTime = undefined;
+        //https://www.chartjs.org/docs/latest/axes/cartesian/time.html
+        function displayGraph(points, currentTime) {
+            if(points.length < 1) {
+                var c = new Chart(ctx, {
+                    type: 'line',
+                    options: {
+                        title: {
+                            display: true,
+                            text: 'Not enough data yet'
+                        }
+                    }
+                });
+                return;
+            }
+            
+            document.getElementById("temp").innerHTML = points[points.length - 1].temperature.toFixed(1) + " °F";
+            document.getElementById("humid").innerHTML = points[points.length - 1].humidity.toFixed(1) + "%";
+            
+            var back = 48; // hours
+            
+            var rightBound = moment(currentTime, "YYYY-MM-DD hh:mm:ss");
+            var leftBound = moment(currentTime, "YYYY-MM-DD hh:mm:ss").subtract(back, 'hours');
+            
+            earliestTime = points[0].datetime;
+            
+            var tempdat = points.map((d) => {
+                //~ if(moment(d.datetime, "YYYY-MM-DD hh:mm:ss").isBefore(leftBound)) return undefined;
+                
+                return {
+                    x: d.datetime,
+                    y: d.temperature.toFixed(1)
+                };
+            }).filter(d => d !== undefined);
+            var humiddat = points.map((d) => {
+                //~ if(moment(d.datetime, "YYYY-MM-DD hh:mm:ss").isBefore(leftBound)) return undefined;
+                
+                return {
+                    x: d.datetime,
+                    y: d.humidity.toFixed(1)
+                };
+            }).filter(d => d !== undefined);
+            
+            const lineChart = new Chart(ctx, {
+                type: 'line',
+                
+                data: {
+                    datasets:[{
+                        label: 'Temperature',
+                        yAxisID: 'T',
+                        data: tempdat,
+                        backgroundColor: "rgba(220,23,23,0.8)",
+                        borderColor: "rgba(220,23,23,0.8)",
+                        fill: false
+                    }, {
+                        label: 'Humidity',
+                        yAxisID: 'H',
+                        data: humiddat,
+                        backgroundColor: "rgba(23,23,220,0.8)",
+                        borderColor: "rgba(23,23,220,0.8)",
+                        fill: false
+                    }]
+                },
+
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        xAxes: [{
+                            type: 'time',
+                            time: {
+                                unit: 'hour',
+                                parser: 'YYYY-MM-DD HH:mm:ss'
+                                //~ displayFormats: {
+                                   //~ hour: 'hA'
+                                //~ }
+                            },
+                            ticks: {
+                                max: rightBound,
+                                min: leftBound
+                                //~ max: points[points.length - 1].datetime,
+                                //~ min: points[0].datetime
+                                //~ max: points.reduce((prev, curr) => {
+                                    //~ console.log(`comparing ${prev.datetime} and ${curr.datetime}`)
+                                    //~ return prev.datetime.localeCompare(curr.datetime) >= 0 ? prev : curr;
+                                //~ }),
+                                //~ min: points.reduce((prev, curr) => {
+                                    //~ return prev.datetime.localeCompare(curr.datetime) <= 0 ? prev : curr;
+                                //~ })
+                                //~ max: Math.max.apply(this, tempdat),
+                                //~ min: Math.min.apply(this, tempdat)
+                            }
+                        }],
+                        
+                        yAxes: [{
+                            id: 'T',
+                            ticks: {
+                                max: 80,
+                                min: 40,
+                                callback: function(v, i, vs) {
+                                    return v + ' °F';
+                                }
+                            }
+                        }, {
+                            id: 'H',
+                            position: "right",
+                            ticks: {
+                                max: 100,
+                                min: 0,
+                                callback: function(v, i, vs) {
+                                    return v + '%';
+                                }
+                            }
+                        }]
+                    }
+                }
+            });
+            
+            //console.log(lineChart.data.map(v => JSON.stringify(v)));
+            return lineChart;
+        }
+        
+        const currentTime = {{ currentTime | tojson }};
+        const lineChart = displayGraph({{ data|safe }}, currentTime);
+        window.onload = () => {
+            const l = document.getElementsByClassName("set-time");
+            for(var i = 0; i < l.length; i++) {
+                l[i].addEventListener("click", function(e) {
+                    var attr = parseInt(this.getAttribute("data-hours"));
+                    lineChart.options.scales.xAxes[0].ticks.min = attr === -1 ? earliestTime : moment(currentTime, "YYYY-MM-DD hh:mm:ss").subtract(attr, 'hours');
+                    lineChart.options.scales.xAxes[0].time.unit = attr > 50 ? 'day' : 'hour'; 
+                    lineChart.update();
+                });
+            }
+        }
+    </script>
+
+{% endblock %}
+

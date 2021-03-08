@@ -1,0 +1,4 @@
+venv/
+flaskr/database.db
+**/__pycache__/
+flaskr/*.pyc
