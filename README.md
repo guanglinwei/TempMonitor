@@ -3,4 +3,4 @@ This is the source code for a website that gets data from the SI7021 I2C Humidit
 The server runs on a Raspberry Pi Zero W.
 
 ### Images
-![Graph](images/graph.png)
+![Graph](images/graph.PNG)
